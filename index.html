@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>casefy</title>
+<style>
+  :root {
+    --ink: #e7e9ee;
+    --muted: #9aa3b5;
+    --bg: #0f1220;
+    --accent: #7c5cff;
+    --accent2: #22d3ee;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  body::before, body::after {
+    content: "";
+    position: fixed;
+    width: 60vmax; height: 60vmax;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: .35;
+    z-index: 0;
+  }
+  body::before { background: var(--accent); top: -20vmax; left: -15vmax; animation: drift 22s ease-in-out infinite alternate; }
+  body::after  { background: var(--accent2); bottom: -20vmax; right: -15vmax; animation: drift 26s ease-in-out infinite alternate-reverse; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(6vmax, 4vmax) scale(1.15); } }
+
+  main {
+    position: relative;
+    z-index: 1;
+    width: min(720px, 100%);
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 20px;
+    padding: 32px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  h1 {
+    font-size: 28px;
+    letter-spacing: .35em;
+    text-transform: lowercase;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  h1 span { color: var(--accent2); }
+  .tagline { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    padding: 14px;
+    outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  .detect {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 14px 0 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .detect strong {
+    color: var(--ink);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    color: var(--accent2);
+    font-weight: 600;
+  }
+  #check {
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.15);
+    font-size: 11px;
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #check:hover { color: var(--ink); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .grid button {
+    font: inherit;
+    font-size: 13px;
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.05);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .12s, border-color .12s, background .12s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grid button:hover { transform: translateY(-2px); border-color: var(--accent2); background: rgba(255,255,255,.1); }
+  .grid button:active { transform: translateY(0); }
+
+  .output {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.12);
+    min-height: 52px;
+    word-break: break-all;
+    font-size: 15px;
+    cursor: pointer;
+    position: relative;
+  }
+  .output:hover { border-color: var(--accent); }
+  .copyhint { position: absolute; top: 6px; right: 10px; font-size: 10px; color: var(--muted); }
+  .flash { outline: 2px solid var(--accent2); }
+
+  footer { margin-top: 20px; text-align: center; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>case<span>fy</span></h1>
+  <p class="tagline">a casing detective and conversion lab</p>
+
+  <textarea id="input" spellcheck="false" placeholder="type something..."></textarea>
+
+  <div class="detect">
+    <span>your style: <strong id="style">—</strong></span>
+    <span id="meta"></span>
+    <button id="check" title="run the self-test">self-test</button>
+  </div>
+
+  <div class="grid" id="buttons"></div>
+
+  <div class="output" id="output" title="click to copy">
+    <span class="copyhint">click to copy</span>
+    <span id="outputText"></span>
+  </div>
+
+  <footer>casefy — no data leaves this tab</footer>
+</main>
+
+<script>
+const CASES = [
+  ["camelCase",      w => w[0] + w.slice(1).map(cap).join("")],
+  ["PascalCase",     w => w.map(cap).join("")],
+  ["snake_case",     w => w.join("_")],
+  ["kebab-case",     w => w.join("-")],
+  ["SCREAMING_SNAKE",w => w.map(u => u.toUpperCase()).join("_")],
+  ["TRAIN-CASE",     w => w.map(u => u.toUpperCase()).join("-")],
+  ["Title Case",     w => w.map(cap).join(" ")],
+  ["Sentence case",  w => cap(w[0]) + w.slice(1).join(" ")],
+  ["lowercase",      w => w.join(" ")],
+  ["UPPERCASE",      w => w.join(" ").toUpperCase()],
+  ["dot.case",       w => w.join(".")],
+  ["no case",        w => w.join("")],
+];
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function words(s) {
+  const m = s.trim().match(/[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|\d+/g);
+  return m ? m.map(w => w.toLowerCase()) : [];
+}
+
+function detect(s) {
+  const t = s.trim();
+  if (!t) return "—";
+  const ws = words(s);
+  if (ws.length < 2) return "single word";
+  for (const [name, fn] of CASES) if (fn(ws) === t) return name;
+  return "unclassified";
+}
+
+function convertAll() {
+  const ws = words(input.value);
+  if (!ws.length) { outputText.textContent = ""; return; }
+  buttons.innerHTML = "";
+  for (const [name, fn] of CASES) {
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.onclick = () => {
+      outputText.textContent = fn(ws);
+      output.classList.remove("flash");
+      void output.offsetWidth;
+      output.classList.add("flash");
+    };
+    buttons.appendChild(b);
+  }
+}
+
+// runnable self-check: fails loudly in console, warns in the UI
+function selfTest() {
+  const c = (want, have) => {
+    if (want !== have) throw new Error(`expected ${JSON.stringify(want)}, got ${JSON.stringify(have)}`);
+  };
+  const w = s => words(s);
+  c(["hello","world"], w("helloWorld"));
+  c(["hello","world"], w("hello-world"));
+  c(["hello","world"], w("hello_world"));
+  c(["hello","world"], w("HELLO WORLD"));
+  c(["screeching","snake"], w("SCREAMING_SNAKE"));
+  c("kebab-case", convert("kebab-case", w("helloWorld")));
+  c("camelCase", convert("camelCase", w("HELLO WORLD")));
+  c("Title Case", convert("Title Case", w("kebab-case-here")));
+  c("Sentence case", convert("Sentence case", w("hello WORLD")));
+  console.log("casefy self-test passed");
+  return true;
+}
+
+function convert(name, ws) {
+  const fn = CASES.find(([n]) => n === name)[1];
+  return fn(ws);
+}
+
+const input = document.getElementById("input");
+const buttons = document.getElementById("buttons");
+const output = document.getElementById("output");
+const outputText = document.getElementById("outputText");
+const style = document.getElementById("style");
+const meta = document.getElementById("meta");
+
+input.addEventListener("input", () => {
+  style.textContent = detect(input.value);
+  const n = words(input.value).length;
+  meta.textContent = n + " word" + (n === 1 ? "" : "s");
+  convertAll();
+});
+document.getElementById("check").onclick = () => {
+  try { selfTest(); style.textContent = "all good"; }
+  catch (e) { style.textContent = "broken"; console.error(e); }
+};
+output.addEventListener("click", () => {
+  if (navigator.clipboard) navigator.clipboard.writeText(outputText.textContent);
+});
+input.value = "hello beautiful world";
+input.dispatchEvent(new Event("input"));
+</script>
+</body>
+</html>
