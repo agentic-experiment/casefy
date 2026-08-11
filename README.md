@@ -6,7 +6,7 @@ and Vanilla JavaScript in a single file.
 
 ## How to run
 
-Open `index.html` in a browser. No server, no build, no dependencies.
+Live on GitHub Pages: https://agentic-experiment.github.io/casefy/
 
 ## Step-by-step reasoning
 
